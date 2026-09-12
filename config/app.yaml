@@ -1,0 +1,21 @@
+app:
+  name: common-svr
+  environment: dev
+
+server:
+  address: 0.0.0.0
+  port: 8080
+  read_timeout: 10s
+  write_timeout: 15s
+  idle_timeout: 60s
+  shutdown_timeout: 10s
+
+log:
+  level: info
+
+database:
+  driver: postgres
+  max_open_connections: 20
+  max_idle_connections: 5
+  connection_max_lifetime: 30m
+  auto_migrate: true

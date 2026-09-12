@@ -1,0 +1,23 @@
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Runtime output
+logs/*
+!logs/.gitkeep
+output/
+bin/
+*.log
+
+# Test and coverage output
+coverage.out
+*.test
+
+# Dependencies
+vendor/
+
+# IDE and OS files
+.idea/
+.vscode/
+.DS_Store
