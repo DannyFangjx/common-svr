@@ -1,0 +1,27 @@
+name: common-svr
+
+services:
+  common-pg:
+    image: postgres:17-alpine
+    container_name: common-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${COMMON_PG_USER:-common_server}
+      POSTGRES_PASSWORD: ${COMMON_PG_PASSWORD:?COMMON_PG_PASSWORD is required}
+      POSTGRES_DB: ${COMMON_PG_DATABASE:-common_server_db}
+      TZ: Asia/Shanghai
+    ports:
+      - "127.0.0.1:${COMMON_PG_PORT:-55433}:5432"
+    volumes:
+      - common-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${COMMON_PG_USER:-common_server} -d ${COMMON_PG_DATABASE:-common_server_db}
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  common-pg-data:
+    name: common-pg-data

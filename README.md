@@ -53,8 +53,19 @@ GET /api/v1/users/get?user_id=<uuid>
 ## 本地启动
 
 1. 复制环境变量模板：`cp .env.example .env`。
-2. 在 `.env` 中设置本地 PostgreSQL 的 `DATABASE_DSN`。
-3. 执行 `make run`。
+2. 将 `.env` 中的 `COMMON_PG_PASSWORD` 替换为本地开发密码。
+3. 执行 `docker compose up -d common-pg`，启动项目独立的 PostgreSQL。
+4. 执行 `make run`。
+
+本地数据库实例：
+
+```text
+Docker container: common-pg
+PostgreSQL user: common_server
+PostgreSQL database: common_server_db
+Host port: 55433
+Docker volume: common-pg-data
+```
 
 `DATABASE_DSN` 使用 GORM PostgreSQL DSN，例如：
 
