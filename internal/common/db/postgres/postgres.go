@@ -9,6 +9,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+	otelgorm "gorm.io/plugin/opentelemetry/tracing"
 )
 
 func Open(cfg config.Database) (*gorm.DB, *sql.DB, error) {
@@ -18,6 +19,9 @@ func Open(cfg config.Database) (*gorm.DB, *sql.DB, error) {
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("open postgres: %w", err)
+	}
+	if err := db.Use(otelgorm.NewPlugin(otelgorm.WithoutMetrics())); err != nil {
+		return nil, nil, fmt.Errorf("register postgres telemetry: %w", err)
 	}
 
 	sqlDB, err := db.DB()

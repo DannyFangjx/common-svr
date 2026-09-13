@@ -3,6 +3,11 @@
 .env.*
 !.env.example
 
+# Private key material under config/; public .crt files may be committed.
+config/**/*.key
+config/**/*.p12
+config/**/*.pfx
+
 # Runtime output
 logs/*
 !logs/.gitkeep

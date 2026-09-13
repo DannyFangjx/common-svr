@@ -77,18 +77,34 @@ host=<host> user=<user> password=<password> dbname=<database> port=5432 sslmode=
 
 User CRUD 当前未增加鉴权，目的是完整展示分层调用链；将脚手架用于真实服务前，需要在路由层接入项目统一认证与授权中间件。
 
+## OpenTelemetry
+
+服务为每个 HTTP 请求创建 OpenTelemetry Span，并为 GORM/PostgreSQL 操作创建子 Span。日志保持 JSON 格式，处于有效 Span 上下文中的日志会在顶层自动增加 `trace_id` 和 `span_id`；`X-Request-ID` 对应的字段独立记录为 `request_id`。
+
+`OTEL_EXPORTER_OTLP_ENDPOINT` 为 OTLP gRPC 地址，例如 `localhost:4317`。地址为空时仍生成本地 Trace/Span ID，但不创建 Exporter、不向外上报。
+
 ## 验证
 
 ```bash
 make test
+make test-integration
 make build
+```
+
+- `make test`：单元测试，不依赖 Docker 或已启动的服务。
+- `make test-integration`：通过 Testcontainers 启动一次性 PostgreSQL，验证完整的 Handler → Service → Repository → PostgreSQL 链路；不会复用或修改本地 `common-pg`。
+- `make test-e2e`：对已启动的服务执行 User CRUD。默认地址为 `http://127.0.0.1:8080`，可通过 `BASE_URL` 覆盖：
+
+```bash
+BASE_URL=http://127.0.0.1:8080 make test-e2e
 ```
 
 ## 配置约定
 
-- `main.go` 是唯一服务入口，启动时加载 `.env` 和 `config/app.yaml`。
-- `.env.example` 只描述环境变量名称和安全默认值。
+- `main.go` 是唯一服务入口，启动时通过结构体标签一次性加载环境变量；本地开发额外自动加载 `.env`。
+- `.env.example` 列出全部运行参数及安全默认值，测试和生产环境由部署系统注入对应值。
 - `.env`、密钥、Token、密码及运行日志禁止提交。
-- `config/` 可以存放真实的非敏感 YAML/JSON 配置。
+- `config/` 只存放证书、CA、规则和模板等静态资源；环境变量保存所需资源的文件路径。
+- OpenTelemetry OTLP 地址为空时不上传链路数据。
 
 完整目录说明见 [docs/directory-structure.md](docs/directory-structure.md)。

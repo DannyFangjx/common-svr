@@ -88,6 +88,7 @@ func TestUserRPCStyleRoutes(t *testing.T) {
 func newTestRouter() http.Handler {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	return New(
+		"common-svr-test",
 		logger,
 		healthhandler.NewHandler(pingerStub{}),
 		userhandler.NewHandler(userServiceStub{}),

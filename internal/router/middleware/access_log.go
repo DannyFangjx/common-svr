@@ -17,7 +17,7 @@ func AccessLog(logger *slog.Logger) gin.HandlerFunc {
 			"path", c.FullPath(),
 			"status", c.Writer.Status(),
 			"latency_ms", time.Since(startedAt).Milliseconds(),
-			"trace_id", c.GetString(TraceIDKey),
+			"request_id", c.GetString(RequestIDKey),
 		)
 	}
 }

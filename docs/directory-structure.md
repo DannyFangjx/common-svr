@@ -26,9 +26,7 @@ common-svr/
 ├── .env.example
 │
 ├── config/
-│   ├── app.yaml
-│   ├── database.yaml
-│   └── rules.yaml
+│   └── .gitkeep
 │
 ├── internal/
 │   ├── router/
@@ -56,6 +54,7 @@ common-svr/
 │   │   ├── mq/
 │   │   ├── client/
 │   │   ├── logger/
+│   │   ├── telemetry/
 │   │   ├── errors/
 │   │   ├── response/
 │   │   └── utils/
@@ -65,7 +64,7 @@ common-svr/
 │
 ├── scripts/
 ├── tools/
-├── test/
+├── tests/
 │   ├── integration/
 │   └── e2e/
 ├── build/
@@ -76,15 +75,15 @@ common-svr/
 
 ### 根目录
 
-- `main.go`：加载 `.env` 和文件配置，调用 `bootstrap`，启动服务并处理优雅退出。
+- `main.go`：加载环境变量和本地 `.env`，调用 `bootstrap`，启动服务并处理优雅退出。
 - `.env.example`：环境变量示例，不包含任何真实凭据。
-- `config/`：真实但非敏感的 YAML/JSON 配置文件。
+- `config/`：证书、CA、规则和模板等静态资源；具体文件由环境变量路径选择。公开证书可以提交，私钥和敏感文件必须通过部署系统挂载。
 - `Makefile`：统一开发、测试、构建入口。
 - `Dockerfile`：服务镜像构建入口。
 
 ### `internal/router`
 
-集中创建 HTTP Engine、注册业务路由和路由分组。`middleware/` 放鉴权、Trace ID、访问日志、Recovery、CORS 等通用中间件。
+集中创建 HTTP Engine、注册业务路由和路由分组。`middleware/` 放鉴权、Request ID、OpenTelemetry HTTP 埋点、访问日志、Recovery、CORS 等通用中间件。
 
 ### `internal/handler`
 
@@ -109,12 +108,13 @@ Handler 不直接访问数据库，也不实现核心业务规则。
 
 存放跨业务模块复用的基础能力：
 
-- `config/`：`.env` 与 `config/` 文件的加载、解析和校验；
+- `config/`：通过结构体标签一次性解析全部环境变量，并完成默认值填充和配置校验；
 - `db/`：数据库连接、事务和业务数据访问实现；
 - `cache/`：Redis 等缓存能力；
 - `mq/`：Kafka 等消息生产与消费基础能力；
 - `client/`：外部 HTTP/RPC Client；
-- `logger/`：结构化日志；
+- `logger/`：JSON 结构化日志，并从 Context 自动注入 OpenTelemetry Trace ID 和 Span ID；
+- `telemetry/`：OpenTelemetry Provider、OTLP Exporter、采样和传播器初始化；
 - `errors/`：统一业务错误；
 - `response/`：统一 HTTP 响应结构；
 - `utils/`：无业务语义的小型工具函数。
@@ -140,14 +140,14 @@ Handler 不直接访问数据库，也不实现核心业务规则。
 
 - `scripts/`：可重复执行的开发、构建和运维脚本；
 - `tools/`：配置检查、数据修复等独立工具；
-- `test/integration/`：数据库、Redis、Kafka 等集成测试；
-- `test/e2e/`：从 HTTP 入口验证完整业务链路；
+- `tests/integration/`：使用一次性真实依赖验证跨层链路；当前通过 Testcontainers 启动独立 PostgreSQL，并用 `httptest.Server` 覆盖 User CRUD；
+- `tests/e2e/`：从 HTTP 入口验证已运行服务；当前通过 `BASE_URL` 覆盖 User CRUD。
 - `build/`：二进制和镜像构建脚本；
 - `logs/`：本地日志输出目录，实际日志不提交。
 
 ## 当前数据库初始化
 
-Demo 暂未引入版本化 Migration。`config/app.yaml` 中的 `database.auto_migrate` 默认为 `true`，启动时通过 GORM `AutoMigrate` 创建或更新 `users` 表。生产化前应替换为独立的版本化 Migration 流程，并关闭自动迁移。
+Demo 暂未引入版本化 Migration。`DATABASE_AUTO_MIGRATE` 默认为 `true`，启动时通过 GORM `AutoMigrate` 创建或更新 `users` 表。生产化前应替换为独立的版本化 Migration 流程，并关闭自动迁移。
 
 ## 分层约束
 

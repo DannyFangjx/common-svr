@@ -4,34 +4,32 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strconv"
 	"time"
 
+	"github.com/caarlos0/env/v11"
 	"github.com/joho/godotenv"
-	"gopkg.in/yaml.v3"
 )
 
-const defaultConfigFile = "config/app.yaml"
-
 type Config struct {
-	App      App      `yaml:"app"`
-	Server   Server   `yaml:"server"`
-	Log      Log      `yaml:"log"`
-	Database Database `yaml:"database"`
+	App       App
+	Server    Server
+	Log       Log
+	Database  Database
+	Telemetry Telemetry
 }
 
 type App struct {
-	Name        string `yaml:"name"`
-	Environment string `yaml:"environment"`
+	Name        string `env:"SERVICE_NAME" envDefault:"common-svr"`
+	Environment string `env:"APP_ENV" envDefault:"dev"`
 }
 
 type Server struct {
-	Host            string        `yaml:"address"`
-	Port            int           `yaml:"port"`
-	ReadTimeout     time.Duration `yaml:"read_timeout"`
-	WriteTimeout    time.Duration `yaml:"write_timeout"`
-	IdleTimeout     time.Duration `yaml:"idle_timeout"`
-	ShutdownTimeout time.Duration `yaml:"shutdown_timeout"`
+	Host            string        `env:"HTTP_ADDR" envDefault:"0.0.0.0"`
+	Port            int           `env:"HTTP_PORT" envDefault:"8080"`
+	ReadTimeout     time.Duration `env:"HTTP_READ_TIMEOUT" envDefault:"10s"`
+	WriteTimeout    time.Duration `env:"HTTP_WRITE_TIMEOUT" envDefault:"15s"`
+	IdleTimeout     time.Duration `env:"HTTP_IDLE_TIMEOUT" envDefault:"60s"`
+	ShutdownTimeout time.Duration `env:"HTTP_SHUTDOWN_TIMEOUT" envDefault:"10s"`
 }
 
 func (s Server) Address() string {
@@ -39,57 +37,43 @@ func (s Server) Address() string {
 }
 
 type Log struct {
-	Level string `yaml:"level"`
+	Level string `env:"LOG_LEVEL" envDefault:"info"`
 }
 
 type Database struct {
-	Driver                string        `yaml:"driver"`
-	DSN                   string        `yaml:"-"`
-	MaxOpenConnections    int           `yaml:"max_open_connections"`
-	MaxIdleConnections    int           `yaml:"max_idle_connections"`
-	ConnectionMaxLifetime time.Duration `yaml:"connection_max_lifetime"`
-	AutoMigrate           bool          `yaml:"auto_migrate"`
+	Driver                string        `env:"DATABASE_DRIVER" envDefault:"postgres"`
+	DSN                   string        `env:"DATABASE_DSN"`
+	MaxOpenConnections    int           `env:"DATABASE_MAX_OPEN_CONNECTIONS" envDefault:"20"`
+	MaxIdleConnections    int           `env:"DATABASE_MAX_IDLE_CONNECTIONS" envDefault:"5"`
+	ConnectionMaxLifetime time.Duration `env:"DATABASE_CONNECTION_MAX_LIFETIME" envDefault:"30m"`
+	AutoMigrate           bool          `env:"DATABASE_AUTO_MIGRATE" envDefault:"true"`
+}
+
+type Telemetry struct {
+	Endpoint    string  `env:"OTEL_EXPORTER_OTLP_ENDPOINT"`
+	Protocol    string  `env:"OTEL_EXPORTER_OTLP_PROTOCOL" envDefault:"grpc"`
+	Insecure    bool    `env:"OTEL_EXPORTER_OTLP_INSECURE" envDefault:"true"`
+	SampleRatio float64 `env:"OTEL_TRACES_SAMPLER_ARG" envDefault:"1.0"`
 }
 
 func Load() (*Config, error) {
 	if err := godotenv.Load(); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("load .env: %w", err)
 	}
+	return parseEnvironment(nil)
+}
 
-	configFile := envOrDefault("CONFIG_FILE", defaultConfigFile)
-	raw, err := os.ReadFile(configFile)
-	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", configFile, err)
-	}
-
+func parseEnvironment(environment map[string]string) (*Config, error) {
 	var cfg Config
-	if err := yaml.Unmarshal(raw, &cfg); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", configFile, err)
+	var err error
+	if environment == nil {
+		err = env.Parse(&cfg)
+	} else {
+		err = env.ParseWithOptions(&cfg, env.Options{Environment: environment})
 	}
-
-	if host := os.Getenv("HTTP_ADDR"); host != "" {
-		cfg.Server.Host = host
+	if err != nil {
+		return nil, fmt.Errorf("parse environment: %w", err)
 	}
-	if port := os.Getenv("HTTP_PORT"); port != "" {
-		value, err := strconv.Atoi(port)
-		if err != nil {
-			return nil, fmt.Errorf("parse HTTP_PORT: %w", err)
-		}
-		cfg.Server.Port = value
-	}
-	if level := os.Getenv("LOG_LEVEL"); level != "" {
-		cfg.Log.Level = level
-	}
-	if name := os.Getenv("SERVICE_NAME"); name != "" {
-		cfg.App.Name = name
-	}
-	if environment := os.Getenv("APP_ENV"); environment != "" {
-		cfg.App.Environment = environment
-	}
-	if driver := os.Getenv("DATABASE_DRIVER"); driver != "" {
-		cfg.Database.Driver = driver
-	}
-	cfg.Database.DSN = os.Getenv("DATABASE_DSN")
 
 	if err := cfg.Validate(); err != nil {
 		return nil, err
@@ -116,12 +100,11 @@ func (c *Config) Validate() error {
 	if c.Database.DSN == "" {
 		return errors.New("DATABASE_DSN is required")
 	}
-	return nil
-}
-
-func envOrDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
+	if c.Telemetry.Protocol != "grpc" {
+		return fmt.Errorf("unsupported telemetry protocol %q", c.Telemetry.Protocol)
 	}
-	return defaultValue
+	if c.Telemetry.SampleRatio < 0 || c.Telemetry.SampleRatio > 1 {
+		return errors.New("telemetry sample ratio must be between 0 and 1")
+	}
+	return nil
 }

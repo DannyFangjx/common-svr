@@ -1,22 +1,32 @@
 package user
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
 	commonerrors "common-svr/internal/common/errors"
 	"common-svr/internal/common/response"
+	"common-svr/internal/model"
 	userservice "common-svr/internal/service/user"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
-type Handler struct {
-	service userservice.UserService
+type userService interface {
+	Create(ctx context.Context, input userservice.CreateInput) (*model.User, error)
+	Get(ctx context.Context, id uuid.UUID) (*model.User, error)
+	List(ctx context.Context, limit, offset int) ([]model.User, int64, error)
+	Update(ctx context.Context, id uuid.UUID, input userservice.UpdateInput) (*model.User, error)
+	Delete(ctx context.Context, id uuid.UUID) error
 }
 
-func NewHandler(service userservice.UserService) *Handler {
+type Handler struct {
+	service userService
+}
+
+func NewHandler(service userService) *Handler {
 	return &Handler{service: service}
 }
 

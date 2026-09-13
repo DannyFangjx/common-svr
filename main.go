@@ -32,14 +32,14 @@ func run() error {
 	)
 	slog.SetDefault(logger)
 
-	app, err := bootstrap.New(cfg, logger)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	app, err := bootstrap.New(ctx, cfg, logger)
 	if err != nil {
 		return fmt.Errorf("bootstrap application: %w", err)
 	}
 	defer app.Close()
-
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
 
 	logger.Info("starting common-svr", "address", cfg.Server.Address())
 	return app.Run(ctx)

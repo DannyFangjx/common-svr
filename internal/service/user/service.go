@@ -13,19 +13,11 @@ import (
 	"github.com/google/uuid"
 )
 
-type Repository interface {
+type UserRepository interface {
 	Create(ctx context.Context, user *model.User) error
 	GetByID(ctx context.Context, id uuid.UUID) (*model.User, error)
 	List(ctx context.Context, limit, offset int) ([]model.User, int64, error)
 	Update(ctx context.Context, user *model.User) error
-	Delete(ctx context.Context, id uuid.UUID) error
-}
-
-type UserService interface {
-	Create(ctx context.Context, input CreateInput) (*model.User, error)
-	Get(ctx context.Context, id uuid.UUID) (*model.User, error)
-	List(ctx context.Context, limit, offset int) ([]model.User, int64, error)
-	Update(ctx context.Context, id uuid.UUID, input UpdateInput) (*model.User, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
@@ -40,10 +32,10 @@ type UpdateInput struct {
 }
 
 type Service struct {
-	repository Repository
+	repository UserRepository
 }
 
-func NewService(repository Repository) *Service {
+func NewService(repository UserRepository) *Service {
 	return &Service{repository: repository}
 }
 
